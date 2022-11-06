@@ -6,6 +6,7 @@ from Cython.Compiler.Options import get_directive_defaults
 from Cython.Build import cythonize
 
 from rich import print
+import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--profile', action='store_true')
@@ -19,6 +20,9 @@ old_dir = os.getcwd()
 packageDir = os.path.dirname(__file__)
 includedDir = [packageDir]
 os.chdir(packageDir)
+
+# Add numpy include directory
+includedDir.append(np.get_include())
 
 extension_kwargs = dict( 
         include_dirs=includedDir,

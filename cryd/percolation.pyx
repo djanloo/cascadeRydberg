@@ -96,7 +96,58 @@ def run(float [:, :] S, float eps):
       del reachable[new_excited_index]
 
   return len(excited)
-        
+
+### Starting cell list method
+
+cdef int [:,:] get_neighboring_cells(float [:] point, float eps):
+  """Returns the cell indexes of a given point given the point and lattice spacing"""
+  cdef int k
+  cdef int space_dim = len(points)
+  cdef int [:] cell_indexes
+  for k in range(space_dim):
+    cell_indexes[k] = <Int> (point[k]/eps)
+
+  # The number of neighboring cells is 3**space_dim - 1 and each cell
+  # requires 3 indexes
+  cdef np.ndarray dummy = np.zeros((3**space_dim - 1, space_dim))
+  cdef int [:,:] neighboring_cells_indexes = a
+
+  # Indexing is don by modular operations
+  # Spans over every possible delta in each dimension
+  # The self-cell is included
+  for u in range(3**dim):
+    for k in range(dim):
+      delta = (u//(3**k))%3 - 1 
+      neighboring_cells_indexes[u, k] = cell_indexes[k] + delta
+
+def get_cell_list(float [:,:] S, float eps):
+  """Returns the list of elements in each cell.
+
+  For example: cell[1,4,3] = [1, 5, 87, 4]"""
+  cdef int N = len(S)
+  cdef int M = <int> (1.0/eps)
+
+  shape = (M,)
+  for k in range(len(S[0])-2):
+    shape += (M,)
+  shape += (1,)
+
+  cdef np.ndarray cells_np = - np.ones(shape, dtype=np.dtype('i'))
+  cdef list cells = cells_np.tolist()
+  for i in range(N):
+    indexes = [-1]*dim
+    for k in dim:
+      indexes[k] = int()
+    cells[<int> ]
+
+def run_by_cells(float [:,:] S, float eps):
+  """The strategy is to divide the space in hypercubes using a position division:
+  for example, if the space is [0,1]x[0,1] and eps == 0.1, a point that has x coordinate equal to 0.2 
+  will be placed in the second column: col = int(x/eps).
+
+  Then the eps-search is done only for the neighboring cells.
+  """
+  
 
 
 

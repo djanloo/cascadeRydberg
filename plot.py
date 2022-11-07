@@ -10,7 +10,7 @@ n = np.zeros((samples, M))
 eps = np.linspace(0,0.5,M)
 
 for samp in track(range(samples)):
-    S = np.random.uniform(0,1 , size=(1000, 3)).astype(np.float32)
+    S = np.random.uniform(0,1 , size=(150, 2)).astype(np.float32)
     for i, r in enumerate(eps):
         n[samp, i] = run(S, r)
 

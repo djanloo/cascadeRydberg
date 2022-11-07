@@ -1,9 +1,9 @@
 ## CRyd Ercolation
 
-[fig1](Figure_1.png)
-[fig2](Figure_2.png)
+![fig1](Figure_1.png)
+![fig2](Figure_2.png)
 
-
+### Code ptimization
 Timer unit: 1e-06 s
 
 Total time: 3.7897 s

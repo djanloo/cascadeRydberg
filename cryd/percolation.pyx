@@ -69,8 +69,7 @@ def run(float [:, :] S, float eps):
 
   # Given a list of excited atoms
   # Finds the index of every reachable atom
-  cdef int M = 0
-  while M < 100:
+  while True:
     for i in range(len(excited)):
       for j in range(len(not_reached_yet)):
         if square_dist(S[excited[i]], S[not_reached_yet[j]]) <= square_eps:
@@ -95,7 +94,7 @@ def run(float [:, :] S, float eps):
       
       # Removes the newly excited index from the excitable atoms
       del reachable[new_excited_index]
-    M +=1 
+
   return len(excited)
         
 

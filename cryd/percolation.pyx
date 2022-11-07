@@ -31,10 +31,16 @@ cdef void set_time_seed():
   srand(t)
   return
 
-cdef float dist(np.ndarray a, np.ndarray b):
-  return np.sum( (a-b)**2 )
+cdef float square_dist(float [:] a, float [:] b):
+  cdef float sqdist = 0.0
+  cdef int k
 
-def run(np.ndarray S, float eps):
+  for k in range(len(a)):
+    sqdist += (a[k] - b[k])**2
+
+  return sqdist
+
+def run(float [:, :] S, float eps):
   """Does the simulation.
   
   Args
@@ -47,45 +53,50 @@ def run(np.ndarray S, float eps):
 
   cdef unsigned int N = len(S)
   cdef unsigned int i,j, new_excited_index
+  cdef float square_eps = eps**2
   
   set_time_seed()
 
-  excited = [] # The indexes of excited atoms
+  cdef list excited = [] # The indexes of excited atoms
+  cdef list reachable = []
+  cdef list not_reached_yet = list(range(N))
+  cdef list dummy = []
 
   # Start with a random excited atom
-  excited.append(rand()%N)
+  first_atom_index = rand()%N
+  excited.append(first_atom_index)
+  not_reached_yet.remove(first_atom_index)
 
   # Given a list of excited atoms
   # Finds the index of every reachable atom
-  reachable = []
   cdef int M = 0
   while M < 100:
     for i in range(len(excited)):
-      for j in range(N):
-        if j not in excited:
-          if dist(S[excited[i]], S[j]) <= eps:
-            if j not in reachable:
-              reachable.append(j)
+      for j in range(len(not_reached_yet)):
+        if square_dist(S[excited[i]], S[not_reached_yet[j]]) <= square_eps:
+          reachable.append(not_reached_yet[j])
+          not_reached_yet[j] = -1
+    
+    for j in range(len(not_reached_yet)):
+      if not_reached_yet[j] != -1:
+        dummy.append(not_reached_yet[j])
+      
+    not_reached_yet = dummy.copy()
+    dummy = []
 
     if len(reachable) == 0:
       # print("no reachable elements")
       break
     else:
-      # print(f"iteration {M}")
-      # print(f"reachable = {reachable}")
-      # print(f"excited = {excited}")
+      # print(f"{reachable}")
       # Selects a reachable atom and exites it
-
       new_excited_index = rand()%len(reachable)
       excited.append(reachable[new_excited_index])
-      """Here the algorithm must be revised, 
-      since fusing the balls means that all the reachable 
-      points at this iteration will be rachable in the next one.
       
-      A lot of computing power is wasted trashing everything."""
-      reachable = []    
+      # Removes the newly excited index from the excitable atoms
+      del reachable[new_excited_index]
     M +=1 
-  return excited
+  return len(excited)
         
 
 

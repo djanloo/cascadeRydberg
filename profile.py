@@ -13,6 +13,7 @@ chdir(join(dirname(__file__), "cryd"))
 
 profile = LineProfiler()
 profile.add_function(ercolation.run)
+
 wrap = profile(ercolation.run)
-wrap(np.random.uniform(0,1 , size=(100, 3)), 0.3)
+wrap(np.random.uniform(0,1 , size=(100, 3)).astype(np.float32), 0.2)
 profile.print_stats()

@@ -60,3 +60,7 @@ Line #      Hits         Time  Per Hit   % Time  Line Contents
     86        99         95.0      1.0      0.0        reachable = []    
     87        99         42.0      0.4      0.0      M +=1 
     88         1          1.0      1.0      0.0    return excited
+
+  
+  # Alg opt
+  [Cell List](https://en.wikipedia.org/wiki/Cell_lists)

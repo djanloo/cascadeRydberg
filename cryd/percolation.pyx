@@ -99,46 +99,54 @@ def run(float [:, :] S, float eps):
 
 ### Starting cell list method
 
-cdef int [:,:] get_neighboring_cells(float [:] point, float eps):
+cdef int [:,:] get_neighboring_cells(float [:] points, float eps):
   """Returns the cell indexes of a given point given the point and lattice spacing"""
   cdef int k
   cdef int space_dim = len(points)
   cdef int [:] cell_indexes
   for k in range(space_dim):
-    cell_indexes[k] = <Int> (point[k]/eps)
+    cell_indexes[k] = <int> (points[k]/eps)
 
   # The number of neighboring cells is 3**space_dim - 1 and each cell
   # requires 3 indexes
   cdef np.ndarray dummy = np.zeros((3**space_dim - 1, space_dim))
-  cdef int [:,:] neighboring_cells_indexes = a
+  cdef int [:,:] neighboring_cells_indexes = dummy
 
   # Indexing is don by modular operations
   # Spans over every possible delta in each dimension
   # The self-cell is included
-  for u in range(3**dim):
-    for k in range(dim):
+  for u in range(3**space_dim):
+    for k in range(space_dim):
       delta = (u//(3**k))%3 - 1 
       neighboring_cells_indexes[u, k] = cell_indexes[k] + delta
 
-def get_cell_list(float [:,:] S, float eps):
+cdef list get_cell_list(float [:,:] S, float eps):
   """Returns the list of elements in each cell.
 
   For example: cell[1,4,3] = [1, 5, 87, 4]"""
   cdef int N = len(S)
-  cdef int M = <int> (1.0/eps)
+  cdef int M = <int> (1.0/eps) # The number of cells per axis
+  cdef int dim = len(S[0])
 
+  ## Builds a list of shape (M,M, ... ,M , 1) where M is repeated dim times
+  # So that (e.g. in 3D) cell[1,2,3] is a list of one element
   shape = (M,)
   for k in range(len(S[0])-2):
     shape += (M,)
   shape += (1,)
+  print(shape)
 
   cdef np.ndarray cells_np = - np.ones(shape, dtype=np.dtype('i'))
   cdef list cells = cells_np.tolist()
+
   for i in range(N):
-    indexes = [-1]*dim
-    for k in dim:
-      indexes[k] = int()
-    cells[<int> ]
+    el = cells
+    for k in range(dim):
+      print(f"cell index for dimension {k} is {<int> (S[i, k]/eps)}")
+      el = el[<int> (S[i, k]/eps)]
+    el.append(i)
+  print(cells)
+  return cells
 
 def run_by_cells(float [:,:] S, float eps):
   """The strategy is to divide the space in hypercubes using a position division:
@@ -147,6 +155,7 @@ def run_by_cells(float [:,:] S, float eps):
 
   Then the eps-search is done only for the neighboring cells.
   """
+  cdef list cell = get_cell_list(S, eps)
   
 
 

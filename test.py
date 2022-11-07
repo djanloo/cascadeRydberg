@@ -1,6 +1,6 @@
-dim = 3
+from cryd.ercolation import run_by_cells
+import numpy as np
 
-for u in range(3**dim):
-    deltas = [5]*dim
-    for k in range(dim):
-     deltas[k] = (u//(3**k))%3 - 1 
+S = np.random.uniform(0,1, size=(100, 2)).astype(np.float32)
+
+run_by_cells(S, 0.1)

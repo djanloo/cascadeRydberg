@@ -72,7 +72,7 @@ def run(float [:, :] S, float eps):
   while True:
     for i in range(len(excited)):
       for j in range(len(not_reached_yet)):
-        if square_dist(S[excited[i]], S[not_reached_yet[j]]) <= square_eps:
+        if square_dist(S[<int> excited[i]],  S[<int> not_reached_yet[j]]) <= square_eps:
           reachable.append(not_reached_yet[j])
           not_reached_yet[j] = -1
     
@@ -101,9 +101,9 @@ def run(float [:, :] S, float eps):
 
 cdef int [:,:] get_neighboring_cells(float [:] points, float eps):
   """Returns the cell indexes of a given point given the point and lattice spacing"""
-  cdef int k
+  cdef int k, u
   cdef int space_dim = len(points)
-  cdef int [:] cell_indexes
+  cdef int [:] cell_indexes = np.zeros(space_dim, dtype=np.dtype("i"))
   for k in range(space_dim):
     cell_indexes[k] = <int> (points[k]/eps)
 
@@ -125,27 +125,25 @@ cdef list get_cell_list(float [:,:] S, float eps):
 
   For example: cell[1,4,3] = [1, 5, 87, 4]"""
   cdef int N = len(S)
-  cdef int M = <int> (1.0/eps) # The number of cells per axis
+  cdef int M = <int> (1.0/eps) + 1 # The number of cells per axis
   cdef int dim = len(S[0])
 
   ## Builds a list of shape (M,M, ... ,M , 1) where M is repeated dim times
   # So that (e.g. in 3D) cell[1,2,3] is a list of one element
   shape = (M,)
-  for k in range(len(S[0])-2):
+  for k in range(len(S[0])-1):
     shape += (M,)
-  shape += (1,)
-  print(shape)
-
-  cdef np.ndarray cells_np = - np.ones(shape, dtype=np.dtype('i'))
+  shape += (0,)
+  cdef np.ndarray cells_np = np.empty(shape=shape)
   cdef list cells = cells_np.tolist()
+  cdef list el
 
   for i in range(N):
     el = cells
     for k in range(dim):
-      print(f"cell index for dimension {k} is {<int> (S[i, k]/eps)}")
       el = el[<int> (S[i, k]/eps)]
     el.append(i)
-  print(cells)
+
   return cells
 
 def run_by_cells(float [:,:] S, float eps):
@@ -155,8 +153,8 @@ def run_by_cells(float [:,:] S, float eps):
 
   Then the eps-search is done only for the neighboring cells.
   """
-  cdef list cell = get_cell_list(S, eps)
-  
+  cdef list cells = get_cell_list(S, eps)
+  return cells
 
 
 

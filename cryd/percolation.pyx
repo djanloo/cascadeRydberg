@@ -44,8 +44,6 @@ cdef float square_dist(float [:] a, float [:] b, int space_dim):
 
   return sqdist
 
-
-
 cdef list get_cell_list(float [:,:] S, float eps):
   """Returns the list of elements in each cell.
 
@@ -118,7 +116,7 @@ def shells_by_cells(float [:,:] S, float r, float delta):
   cdef unsigned int space_dim = len(S[0])
   cdef unsigned int M = <int> (1.0/(r+delta/2.0)) + 1
 
-  # Main lists of the algorithm
+  # Define main lists of the algorithm
   cdef list cores = [], new_cores = []
   cdef unsigned int [:] topology_state = np.zeros(N, dtype=np.uintc)
 

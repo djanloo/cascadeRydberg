@@ -45,7 +45,7 @@ cdef float square_dist(float [:] a, float [:] b, int space_dim):
   return sqdist
 
 def run(float [:, :] S, float eps):
-  """Does the simulation.
+  """Does the simulation the brute forcing way and neglecting shells.
   
   Args
   ----

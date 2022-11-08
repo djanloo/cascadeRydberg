@@ -76,7 +76,7 @@ cdef unsigned int INTERNAL = 2
 cdef unsigned int CORE = 3
 
 def shells_by_cells(float [:,:] S, float r, float delta):
-  """Use a cellular division to find the atoms in the shell of the whole sausage,
+  """Use a cell binning to find the atoms in the shell of the whole sausage,
   thn simulate the process.
 
   Iteration start from an already defined sausage and relative topology and iteratively adds

@@ -12,6 +12,7 @@ chdir(join(dirname(__file__), "cryd"))
 
 
 profile = LineProfiler()
+
 profile.add_function(ercolation.run_by_cells)
 profile.add_function(ercolation.run)
 

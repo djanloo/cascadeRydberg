@@ -176,48 +176,63 @@ def run_by_cells(float [:,:] S, float eps):
   cdef int [:,:] neighboring_cells
 
   cdef int i, k, j, e
-  cdef list excited = [], neighbors = [], el
+  cdef list excited = [], excitables = [], newly_added_excited = [], el
   cdef int [:] is_already_reached = np.zeros(N, dtype=np.dtype("i"))
   cdef int index_on_axis
   cdef int [:] current_cell_indexes = np.zeros(space_dim, dtype=np.dtype("i")) 
 
   first_atom_index = rand()%N
-  excited.append(first_atom_index)
+  newly_added_excited.append(first_atom_index)
   is_already_reached[first_atom_index] = 1
 
-  neighbors = []
+  excitable = []
 
   while True:
-    for e in range(len(excited)):
+    # Since excitable neighbors due to already excited atom are already computed
+    # computes only the new excitable ones due to the atoms excited in the
+    # previous iteration
+    for e in range(len(newly_added_excited)):
 
-      # For each neighboring cell
       for i in range(3**space_dim):
-        el = cells.copy()
+        # Starting i-th Cell-neighbors listing
+        # where i is one of the 3**space_dim neighboring cells
 
+        # Traveling the cell list
+        el = cells.copy()
         for j in range(space_dim):
-          index_on_axis = <int> (S[<int> excited[e], j]/eps) + (i//(3**j))%3 - 1
+          # This quirky one-line indexes the (i,j,k) coordinates of the neighbors
+          # mapping the discrete interval [0, ... , 3**space_dim] into the set {(-1, -1, -1), (-1, -1, 0), ... (-1, 1, 0), ..}
+          # of all the neighboring cells 
+          # HINT for future djanloo: try switching the i-for and the j-for to save time in accessing S(j) (does not depend on i, redundancy)
+          index_on_axis = <int> (S[<int> newly_added_excited[e], j]/eps) + (i//(3**j))%3 - 1
           if index_on_axis < 0 or index_on_axis >= M:
             el = []
             break
           el = el[index_on_axis]
-
+        # End of i-th Cell-neighbors listing
         # At this point el is the list of neighbors in the i-th cell
 
+        # Then checks if the i-th cell elements
         for k in range(len(el)):
-          if is_already_reached[<int> el[k]] == 0 and square_dist(S[<int> excited[e]],  S[<int> el[k]], space_dim) <= square_eps:
-            neighbors.append(el[k])
+          if is_already_reached[<int> el[k]] == 0 and square_dist(S[<int> newly_added_excited[e]],  S[<int> el[k]], space_dim) <= square_eps:
+            excitable.append(el[k])
             is_already_reached[<int> el[k]] = 1
+      # Since the neighbors of the newly added axcited are computed
+      # Simply stores it in the excited list
+      excited.append(newly_added_excited[e])
 
-    if len(neighbors) == 0:
+    newly_added_excited = []
+
+    if len(excitable) == 0:
         # print("no reachable elements")
         break
     else:
       # Selects a reachable atom and exites it
-      new_excited_index = rand()%len(neighbors)
-      excited.append(neighbors[new_excited_index])
+      new_excited_index = rand()%len(excitable)
+      newly_added_excited.append(excitable[new_excited_index])
       
       # Removes the newly excited index from the excitable atoms
-      del neighbors[new_excited_index]
+      del excitable[new_excited_index]
 
   return len(excited)
 

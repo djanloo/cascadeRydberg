@@ -178,7 +178,7 @@ def run_by_cells(float [:,:] S, float eps):
   cdef int i, k, j, e
   cdef list excited = [], excitables = [], newly_added_excited = [], el
   cdef int [:] is_already_reached = np.zeros(N, dtype=np.dtype("i"))
-  cdef int index_on_axis
+  cdef int neighboring_cell_index_on_axis
   cdef int [:] current_cell_indexes = np.zeros(space_dim, dtype=np.dtype("i")) 
 
   first_atom_index = rand()%N
@@ -193,7 +193,7 @@ def run_by_cells(float [:,:] S, float eps):
     # previous iteration
     for e in range(len(newly_added_excited)):
 
-      for i in range(3**space_dim):
+      for i in range(3**space_dim):      
         # Starting i-th Cell-neighbors listing
         # where i is one of the 3**space_dim neighboring cells
 
@@ -204,11 +204,11 @@ def run_by_cells(float [:,:] S, float eps):
           # mapping the discrete interval [0, ... , 3**space_dim] into the set {(-1, -1, -1), (-1, -1, 0), ... (-1, 1, 0), ..}
           # of all the neighboring cells 
           # HINT for future djanloo: try switching the i-for and the j-for to save time in accessing S(j) (does not depend on i, redundancy)
-          index_on_axis = <int> (S[<int> newly_added_excited[e], j]/eps) + (i//(3**j))%3 - 1
-          if index_on_axis < 0 or index_on_axis >= M:
+          neighboring_cell_index_on_axis = <int> (S[<int> newly_added_excited[e], j]/eps) + (i//(3**j))%3 - 1
+          if neighboring_cell_index_on_axis < 0 or neighboring_cell_index_on_axis >= M:
             el = []
             break
-          el = el[index_on_axis]
+          el = el[neighboring_cell_index_on_axis]
         # End of i-th Cell-neighbors listing
         # At this point el is the list of neighbors in the i-th cell
 

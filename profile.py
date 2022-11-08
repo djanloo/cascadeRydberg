@@ -14,16 +14,18 @@ chdir(join(dirname(__file__), "cryd"))
 profile = LineProfiler()
 
 profile.add_function(ercolation.run_by_cells)
-profile.add_function(ercolation.run)
+# profile.add_function(ercolation.run)
 
 S = np.random.uniform(0,1 , size=(800, 3)).astype(np.float32)
 
+np.random.seed(42)
 ercolation.set_seed(42)
 
 wrap = profile(ercolation.run_by_cells)
-print(wrap(S, 0.1))
+for j in range(10):
+    print(wrap(S, 0.1))
 
-wrap = profile(ercolation.run)
-print(wrap(S, 0.1))
+# wrap = profile(ercolation.run)
+# print(wrap(S, 0.1))
 
 profile.print_stats()

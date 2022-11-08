@@ -75,7 +75,10 @@ cdef unsigned int SHELL = 1
 cdef unsigned int INTERNAL = 2
 cdef unsigned int CORE = 3
 
-def shells_by_cells(float [:,:] S, float r, float delta):
+def shells_by_cells(float [:,:] S, 
+                    float r, float delta, 
+                    float excitation_probability, float decay_probability
+                    ):
   """Use a cell binning to find the atoms in the shell of the whole sausage,
   thn simulate the process.
 
@@ -197,7 +200,7 @@ def shells_by_cells(float [:,:] S, float r, float delta):
     for i in range(N):
       if topological_state[i] == SHELL:
         exists_at_least_one_shell_atom = 1
-        if randzerone() < 0.1:
+        if randzerone() < excitation_probability:
           new_cores.append(i) 
     #
     ############### END EXCITATION ###############################

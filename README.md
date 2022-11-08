@@ -3,7 +3,6 @@
 Numerical simulation of the avalanche process of Rydberg atom exitation through percolation.
 
 ![fig1](shells_by_cells_2.png)
-![fig4](rate_plot.png)
 
 ### Requirements and installation
 `pipenv` is required.

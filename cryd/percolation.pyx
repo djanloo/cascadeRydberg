@@ -44,67 +44,6 @@ cdef float square_dist(float [:] a, float [:] b, int space_dim):
 
   return sqdist
 
-def run(float [:, :] S, float eps):
-  """Does the simulation the brute forcing way and neglecting shells.
-  
-  Args
-  ----
-    S : np.array or memoryview
-      the array of points (as a memoryview).
-    eps: float
-      the radius of the ball
-  """
-
-  cdef unsigned int N = len(S)
-  cdef int space_dim = len(S[0])
-  cdef unsigned int i,j, new_excited_index
-  cdef float square_eps = eps**2
-  
-  set_time_seed()
-
-  cdef list excited = [] # The indexes of excited atoms
-  cdef list reachable = []
-  cdef list not_reached_yet = list(range(N))
-  cdef list dummy = []
-
-  # Start with a random excited atom
-  first_atom_index = rand()%N
-  excited.append(first_atom_index)
-  not_reached_yet.remove(first_atom_index)
-
-  # Given a list of excited atoms
-  # Finds the index of every reachable atom
-  while True:
-    for i in range(len(excited)):
-      for j in range(len(not_reached_yet)):
-        if square_dist(S[<int> excited[i]],  S[<int> not_reached_yet[j]], space_dim) <= square_eps:
-          reachable.append(not_reached_yet[j])
-          not_reached_yet[j] = -1
-    
-    for j in range(len(not_reached_yet)):
-      if not_reached_yet[j] != -1:
-        dummy.append(not_reached_yet[j])
-      
-    not_reached_yet = dummy.copy()
-    dummy = []
-
-    if len(reachable) == 0:
-      # print("no reachable elements")
-      break
-    else:
-      # print(f"{reachable}")
-      # Selects a reachable atom and exites it
-      new_excited_index = rand()%len(reachable)
-      excited.append(reachable[new_excited_index])
-      
-      # Removes the newly excited index from the excitable atoms
-      del reachable[new_excited_index]
-
-  return len(excited)
-
-### Starting cell list method
-cdef np.ndarray cell_indexes_template
-cdef np.ndarray neighboring_cells_indexes_template
 
 
 cdef list get_cell_list(float [:,:] S, float eps):
@@ -133,89 +72,10 @@ cdef list get_cell_list(float [:,:] S, float eps):
 
   return cells
 
-def run_by_cells(float [:,:] S, float eps):
-  """The strategy is to divide the space in hypercubes using a position division:
-  for example, if the space is [0,1]x[0,1] and eps == 0.1, a point that has x coordinate equal to 0.2 
-  will be placed in the second column: col = int(x/eps).
-
-  Then the eps-search is done only for the neighboring cells.
-  """
-  cdef int N = len(S)
-  if N==0:
-    exit("Empty array")
-  cdef int space_dim = len(S[0])
-
-  cdef int M = <int> (1.0/eps) + 1 # The number of boxes per axis
-  cdef list cells = get_cell_list(S, eps)
-  cdef float square_eps = eps**2
-  cdef int [:,:] neighboring_cells
-
-  cdef int i, k, j, e
-  cdef list excited = [], excitables = [], newly_added_excited = [], el
-  cdef int [:] is_already_reached = np.zeros(N, dtype=np.dtype("i"))
-  cdef int neighboring_cell_index_on_axis
-  cdef int [:] current_cell_indexes = np.zeros(space_dim, dtype=np.dtype("i")) 
-
-  first_atom_index = rand()%N
-  newly_added_excited.append(first_atom_index)
-  is_already_reached[first_atom_index] = 1
-
-  excitable = []
-
-  while True:
-    # Since excitable neighbors due to already excited atom are already computed
-    # computes only the new excitable ones due to the atoms excited in the
-    # previous iteration
-    for e in range(len(newly_added_excited)):
-
-      for i in range(3**space_dim):      
-        # Starting i-th Cell-neighbors listing
-        # where i is one of the 3**space_dim neighboring cells
-
-        # Traveling the cell list
-        el = cells.copy()
-        for j in range(space_dim):
-          # This quirky one-line indexes the (i,j,k) coordinates of the neighbors
-          # mapping the discrete interval [0, ... , 3**space_dim] into the set {(-1, -1, -1), (-1, -1, 0), ... (-1, 1, 0), ..}
-          # of all the neighboring cells 
-          # HINT for future djanloo: try switching the i-for and the j-for to save time in accessing S(j) (does not depend on i, redundancy)
-          neighboring_cell_index_on_axis = <int> (S[<int> newly_added_excited[e], j]/eps) + (i//(3**j))%3 - 1
-          if neighboring_cell_index_on_axis < 0 or neighboring_cell_index_on_axis >= M:
-            el = []
-            break
-          el = el[neighboring_cell_index_on_axis]
-        # End of i-th Cell-neighbors listing
-        # At this point el is the list of neighbors in the i-th cell
-
-        # Then checks if the i-th cell elements
-        for k in range(len(el)):
-          if is_already_reached[<int> el[k]] == 0 and square_dist(S[<int> newly_added_excited[e]],  S[<int> el[k]], space_dim) <= square_eps:
-            excitable.append(el[k])
-            is_already_reached[<int> el[k]] = 1
-      # Since the neighbors of the newly added axcited are computed
-      # Simply stores it in the excited list
-      excited.append(newly_added_excited[e])
-
-    newly_added_excited = []
-
-    if len(excitable) == 0:
-        # print("no reachable elements")
-        break
-    else:
-      # Selects a reachable atom and exites it
-      new_excited_index = rand()%len(excitable)
-      newly_added_excited.append(excitable[new_excited_index])
-      
-      # Removes the newly excited index from the excitable atoms
-      del excitable[new_excited_index]
-
-  return len(excited)
-
 cdef unsigned int EXTERNAL = 0
 cdef unsigned int SHELL = 1
 cdef unsigned int INTERNAL = 2
 cdef unsigned int CORE = 3
-
 
 def shells_by_cells(float [:,:] S, float r, float delta):
   """Use a cellular division to find the atoms in the shell of the whole sausage,
@@ -267,9 +127,6 @@ def shells_by_cells(float [:,:] S, float r, float delta):
   cdef float sq_dist
   cdef float square_upper_radius = (r + delta/2.0)**2
   cdef float square_lower_radius = (r - delta/2.0)**2
-
-  # print(f"square_upper_radius = {square_upper_radius}")
-  # print(f"square_lower_radius = {square_lower_radius}")
 
   # Cell list navigation working variables
   cdef unsigned int neighboring_cell_index_on_axis, 

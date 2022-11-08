@@ -9,7 +9,7 @@ Due to the high number of particles a "distances look-up table" strategy cannot 
 
 
 ![fig1](Figure_1.png)
-![fig2](Figure_2.png)
+![fig4](Figure_4.png)
 
 
 

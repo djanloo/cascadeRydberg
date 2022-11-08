@@ -106,29 +106,6 @@ def run(float [:, :] S, float eps):
 cdef np.ndarray cell_indexes_template
 cdef np.ndarray neighboring_cells_indexes_template
 
-cdef int [:,:] get_neighboring_cells(float [:] point, float eps):
-  """Returns the cell indexes of a given point given the point and lattice spacing"""
-  cdef int k, u
-  cdef int space_dim = len(point)
-  # WARNING: cell_indexes_template must be initialized to np.zeros(space_dim, dtype=np.dtype("i"))
-  # Outside of this function
-  global cell_indexes_template, neighboring_cells_indexes_template
-  cdef int [:] cell_indexes = cell_indexes_template
-  for k in range(space_dim):
-    cell_indexes[k] = <int> (point[k]/eps)
-
-  # The number of neighboring cells is 3**space_dim - 1 and each cell
-  # requires 3 indexes
-  cdef int [:,:] neighboring_cells_indexes = neighboring_cells_indexes_template
-
-  # Indexing is don by modular operations
-  # Spans over every possible delta in each dimension
-  # The self-cell is included
-  for u in range(3**space_dim):
-    for k in range(space_dim):
-      neighboring_cells_indexes[u, k] = cell_indexes[k] + (u//(3**k))%3 - 1 
-
-  return neighboring_cells_indexes
 
 cdef list get_cell_list(float [:,:] S, float eps):
   """Returns the list of elements in each cell.
@@ -165,10 +142,6 @@ def run_by_cells(float [:,:] S, float eps):
   """
   cdef int N = len(S)
   cdef int space_dim = len(S[0])
-
-  global cell_indexes_template, neighboring_cells_indexes_template
-  cell_indexes_template = np.zeros(space_dim, dtype=np.dtype("i"))
-  neighboring_cells_indexes_template = np.zeros((3**space_dim, space_dim), dtype=np.dtype("i"))
 
   cdef int M = <int> (1.0/eps) + 1 # The number of boxes per axis
   cdef list cells = get_cell_list(S, eps)

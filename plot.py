@@ -3,23 +3,23 @@ import numpy as np
 from matplotlib import pyplot as plt
 from rich.progress import track
 
-M = 50
-samples = 10
+M = 30
+samples = 100
+eps = 0.11
 
 n = np.zeros((samples, M))
-eps = np.linspace(0.01,0.5,M)
+Ns = 50*np.arange(1,M +1)
 
 for samp in track(range(samples)):
-    S = np.random.uniform(0,1 , size=(1000, 3)).astype(np.float32)
-    for i, r in enumerate(eps):
-        n[samp, i] = run_by_cells(S, r)
+    for i, N in enumerate(Ns):
+        S = np.random.uniform(0,1 , size=(N, 3)).astype(np.float32)
+        n[samp, i] = run_by_cells(S, eps)/N
 
-up,down = np.quantile(n,[.1, .9], axis = 0)
-mean = np.mean(n, axis = 0)
+up,median,down = np.quantile(n,[.2, .5, .8], axis = 0)
 
-plt.plot(eps, mean, color = "k")
-plt.fill_between(eps, down, up, color = 'orange', alpha=0.5)
+plt.plot(Ns, median, color = "k")
+plt.fill_between(Ns, down, up, color = 'orange', alpha=0.5)
 
-plt.ylabel(r"$\langle N \rangle$")
-plt.xlabel(r"$\epsilon$")
+plt.ylabel(r"$\langle N_{excited} / N \rangle$")
+plt.xlabel(r"$\rho$")
 plt.show()

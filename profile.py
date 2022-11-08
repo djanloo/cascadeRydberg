@@ -16,13 +16,13 @@ profile = LineProfiler()
 profile.add_function(ercolation.run_by_cells)
 # profile.add_function(ercolation.run)
 
-S = np.random.uniform(0,1 , size=(800, 3)).astype(np.float32)
+S = np.random.uniform(0,1 , size=(1000, 3)).astype(np.float32)
 
 np.random.seed(42)
-ercolation.set_seed(42)
 
 wrap = profile(ercolation.run_by_cells)
 for j in range(10):
+    ercolation.set_seed(42)
     print(wrap(S, 0.1))
 
 # wrap = profile(ercolation.run)

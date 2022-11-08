@@ -163,7 +163,7 @@ def shells_by_cells(float [:,:] S, float r, float delta):
           element_topological_state = topological_state[el_index]
           if element_topological_state != INTERNAL and element_topological_state != CORE:
             # Here enter only SHELL and EXTERNAL points
-            sq_dist = square_dist(S[new_cores[nc]], S[el[k]], space_dim)
+            sq_dist = square_dist(S[<int> new_cores[nc]], S[el_index], space_dim)
             if element_topological_state == SHELL:
               if sq_dist < square_upper_radius:
                 topological_state[el_index] = INTERNAL

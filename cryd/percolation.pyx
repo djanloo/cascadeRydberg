@@ -87,8 +87,7 @@ def shells_by_cells(float [:,:] S, float r, float delta):
     - new_cores    (excited in last iteration: must be added to the sausage)
     Topology indicator:
     specify the topological relation of a point to the sausage
-    - topology_state:
-        has values:
+    topological_state has values:
         - INTERNAL    (not excitable:  dist_from_nearest_core < r - delta/2)
         - SHELL       (excitable:      r - delta/2 < dist_from_all_cores < r + delta/2 )
         - EXTERNAL    (undetermined:   dist_from_all_cores > r + delta/2 )
@@ -118,16 +117,16 @@ def shells_by_cells(float [:,:] S, float r, float delta):
 
   # Define main lists of the algorithm
   cdef list cores = [], new_cores = []
-  cdef unsigned int [:] topology_state = np.zeros(N, dtype=np.uintc)
+  cdef unsigned int [:] topological_state = np.zeros(N, dtype=np.uintc)
 
   # Topolgy update working variables
-  cdef unsigned int i,j,k, nc, el_index, element_topology_state
+  cdef unsigned int i,j,k, nc, el_index, element_topological_state
   cdef float sq_dist
   cdef float square_upper_radius = (r + delta/2.0)**2
   cdef float square_lower_radius = (r - delta/2.0)**2
 
   # Cell list navigation working variables
-  cdef unsigned int neighboring_cell_index_on_axis, 
+  cdef unsigned int neighboring_cell_index_on_axis
   cdef list el
 
   ################ CELL LIST CREATION ##########################
@@ -136,7 +135,7 @@ def shells_by_cells(float [:,:] S, float r, float delta):
   ################ FIRST ATOM EXCITATION #######################
   first_atom_index = rand()%N
   new_cores.append(first_atom_index)
-  topology_state[first_atom_index] = CORE
+  topological_state[first_atom_index] = CORE
 
   cdef int number_of_cores = 0, exists_at_least_one_shell_atom = 0, safety_flag=0
   while True:
@@ -151,7 +150,7 @@ def shells_by_cells(float [:,:] S, float r, float delta):
           # This quirky one-line indexes the (i,j,k) coordinates of the neighbors
           # mapping the discrete interval [0, ... , 3**space_dim] into the set {(-1, -1, -1), (-1, -1, 0), ... (-1, 1, 0), ..}
           # of all the neighboring cells 
-          neighboring_cell_index_on_axis = <int> (S[<int> new_cores[nc], j]/(r+delta/2)) + (i//(3**j))%3 - 1
+          neighboring_cell_index_on_axis = <int> (S[<int> new_cores[nc], j]/(r+delta/2.0)) + (i//(3**j))%3 - 1
           if neighboring_cell_index_on_axis < 0 or neighboring_cell_index_on_axis >= M:
             el = []
             break
@@ -161,21 +160,21 @@ def shells_by_cells(float [:,:] S, float r, float delta):
         # TOPOLOGY UPDATE
         for k in range(len(el)):
           el_index = el[k]
-          element_topology_state = topology_state[el_index]
-          if element_topology_state != INTERNAL and element_topology_state != CORE:
+          element_topological_state = topological_state[el_index]
+          if element_topological_state != INTERNAL and element_topological_state != CORE:
             # Here enter only SHELL and EXTERNAL points
             sq_dist = square_dist(S[new_cores[nc]], S[el[k]], space_dim)
-            if element_topology_state == SHELL:
+            if element_topological_state == SHELL:
               if sq_dist < square_upper_radius:
-                topology_state[el_index] = INTERNAL
+                topological_state[el_index] = INTERNAL
               # else :
               #   print("\tleaved as SHELL")
             else:
               # Here enter only EXTERNAL points
               if sq_dist < square_lower_radius:
-                topology_state[el_index] = INTERNAL 
+                topological_state[el_index] = INTERNAL 
               elif sq_dist < square_upper_radius:
-                topology_state[el_index] = SHELL
+                topological_state[el_index] = SHELL
     #           else:
     #             print("\tleaved as EXTERNAL")
     # 
@@ -185,7 +184,7 @@ def shells_by_cells(float [:,:] S, float r, float delta):
     for k in range(len(new_cores)):
       nc = new_cores[k]
       cores.append(nc)
-      topology_state[nc] = CORE
+      topological_state[nc] = CORE
       number_of_cores += 1
 
     # Empties the new_cores list
@@ -196,7 +195,7 @@ def shells_by_cells(float [:,:] S, float r, float delta):
     # Excites each shell atom with a fixed probability
     exists_at_least_one_shell_atom = 0
     for i in range(N):
-      if topology_state[i] == SHELL:
+      if topological_state[i] == SHELL:
         exists_at_least_one_shell_atom = 1
         if randzerone() < 0.1:
           new_cores.append(i) 

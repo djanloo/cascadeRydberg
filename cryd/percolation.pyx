@@ -31,11 +31,15 @@ cdef void set_time_seed():
   srand(t)
   return
 
-cdef float square_dist(float [:] a, float [:] b):
+cpdef void set_seed(int seed):
+  srand(seed)
+  return
+
+cdef float square_dist(float [:] a, float [:] b, int space_dim):
   cdef float sqdist = 0.0
   cdef int k
 
-  for k in range(len(a)):
+  for k in range(space_dim):
     sqdist += (a[k] - b[k])**2
 
   return sqdist
@@ -52,6 +56,7 @@ def run(float [:, :] S, float eps):
   """
 
   cdef unsigned int N = len(S)
+  cdef int space_dim = len(S[0])
   cdef unsigned int i,j, new_excited_index
   cdef float square_eps = eps**2
   
@@ -72,7 +77,7 @@ def run(float [:, :] S, float eps):
   while True:
     for i in range(len(excited)):
       for j in range(len(not_reached_yet)):
-        if square_dist(S[<int> excited[i]],  S[<int> not_reached_yet[j]]) <= square_eps:
+        if square_dist(S[<int> excited[i]],  S[<int> not_reached_yet[j]], space_dim) <= square_eps:
           reachable.append(not_reached_yet[j])
           not_reached_yet[j] = -1
     
@@ -98,27 +103,32 @@ def run(float [:, :] S, float eps):
   return len(excited)
 
 ### Starting cell list method
+cdef np.ndarray cell_indexes_template
+cdef np.ndarray neighboring_cells_indexes_template
 
-cdef int [:,:] get_neighboring_cells(float [:] points, float eps):
+cdef int [:,:] get_neighboring_cells(float [:] point, float eps):
   """Returns the cell indexes of a given point given the point and lattice spacing"""
   cdef int k, u
-  cdef int space_dim = len(points)
-  cdef int [:] cell_indexes = np.zeros(space_dim, dtype=np.dtype("i"))
+  cdef int space_dim = len(point)
+  # WARNING: cell_indexes_template must be initialized to np.zeros(space_dim, dtype=np.dtype("i"))
+  # Outside of this function
+  global cell_indexes_template, neighboring_cells_indexes_template
+  cdef int [:] cell_indexes = cell_indexes_template
   for k in range(space_dim):
-    cell_indexes[k] = <int> (points[k]/eps)
+    cell_indexes[k] = <int> (point[k]/eps)
 
   # The number of neighboring cells is 3**space_dim - 1 and each cell
   # requires 3 indexes
-  cdef np.ndarray dummy = np.zeros((3**space_dim - 1, space_dim))
-  cdef int [:,:] neighboring_cells_indexes = dummy
+  cdef int [:,:] neighboring_cells_indexes = neighboring_cells_indexes_template
 
   # Indexing is don by modular operations
   # Spans over every possible delta in each dimension
   # The self-cell is included
   for u in range(3**space_dim):
     for k in range(space_dim):
-      delta = (u//(3**k))%3 - 1 
-      neighboring_cells_indexes[u, k] = cell_indexes[k] + delta
+      neighboring_cells_indexes[u, k] = cell_indexes[k] + (u//(3**k))%3 - 1 
+
+  return neighboring_cells_indexes
 
 cdef list get_cell_list(float [:,:] S, float eps):
   """Returns the list of elements in each cell.
@@ -153,8 +163,63 @@ def run_by_cells(float [:,:] S, float eps):
 
   Then the eps-search is done only for the neighboring cells.
   """
+  cdef int N = len(S)
+  cdef int space_dim = len(S[0])
+
+  global cell_indexes_template, neighboring_cells_indexes_template
+  cell_indexes_template = np.zeros(space_dim, dtype=np.dtype("i"))
+  neighboring_cells_indexes_template = np.zeros((3**space_dim, space_dim), dtype=np.dtype("i"))
+
+  cdef int M = <int> (1.0/eps) + 1 # The number of boxes per axis
   cdef list cells = get_cell_list(S, eps)
-  return cells
+  cdef float square_eps = eps**2
+  cdef int [:,:] neighboring_cells
+
+  cdef int i, k, j, e
+  cdef list excited = [], neighbors = [], el
+  cdef int [:] is_already_reached = np.zeros(N, dtype=np.dtype("i"))
+  cdef int index_on_axis
+  cdef int [:] current_cell_indexes = np.zeros(space_dim, dtype=np.dtype("i")) 
+
+  first_atom_index = rand()%N
+  excited.append(first_atom_index)
+  is_already_reached[first_atom_index] = 1
+
+  neighbors = []
+
+  while True:
+    for e in range(len(excited)):
+
+      # For each neighboring cell
+      for i in range(3**space_dim):
+        el = cells.copy()
+
+        for j in range(space_dim):
+          index_on_axis = <int> (S[<int> excited[e], j]/eps) + (i//(3**j))%3 - 1
+          if index_on_axis < 0 or index_on_axis >= M:
+            el = []
+            break
+          el = el[index_on_axis]
+
+        # At this point el is the list of neighbors in the i-th cell
+
+        for k in range(len(el)):
+          if is_already_reached[<int> el[k]] == 0 and square_dist(S[<int> excited[e]],  S[<int> el[k]], space_dim) <= square_eps:
+            neighbors.append(el[k])
+            is_already_reached[<int> el[k]] = 1
+
+    if len(neighbors) == 0:
+        # print("no reachable elements")
+        break
+    else:
+      # Selects a reachable atom and exites it
+      new_excited_index = rand()%len(neighbors)
+      excited.append(neighbors[new_excited_index])
+      
+      # Removes the newly excited index from the excitable atoms
+      del neighbors[new_excited_index]
+
+  return len(excited)
 
 
 

@@ -178,6 +178,7 @@ cdef delete_core_from_blob(list decaying_cores, float [:, :] S, list cores,
         current_topological_state[<int> neighbors[k]] = EXTERNAL
 
   for c in range(len(cores)):
+    current_topological_state[<int> cores[c]] = CORE
     atom_position = S[<int> cores[c]]
     for i in range(3**space_dim):
       neighbors = cells.copy()

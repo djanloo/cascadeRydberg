@@ -3,7 +3,7 @@
 from os import chdir
 from os.path import dirname, join
 from line_profiler import LineProfiler
-from cryd import ercolation
+from fryd import ercolation
 import numpy as np
 
 # Sets the working directory as the one with the code inside

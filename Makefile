@@ -2,29 +2,29 @@
 
 generate:
 	@make clear
-	@python -m cryd.setup
+	@python -m fryd.setup
 
 profile:
 	@make clear
-	@python -m cryd.setup --profile
+	@python -m fryd.setup --profile
 
 notrace:
 	@make clear
-	@python -m cryd.setup --notrace
+	@python -m fryd.setup --notrace
 
 hardcore:
 	make clear
-	@python -m cryd.setup --hardcore
+	@python -m fryd.setup --hardcore
 
 hardcoreprofile:
 	make clear
-	@python -m cryd.setup --hardcore --profile
+	@python -m fryd.setup --hardcore --profile
 
 clear:
 	@echo "Cleaning all.."
-	@rm -f cryd/*.c
-	@rm -f cryd/*.so
-	@rm -f cryd/*.html
-	@rm -R -f cryd/build
-	@rm -R -f cryd/__pycache__
+	@rm -f fryd/*.c
+	@rm -f fryd/*.so
+	@rm -f fryd/*.html
+	@rm -R -f fryd/build
+	@rm -R -f fryd/__pycache__
 	@echo "Cleaned."

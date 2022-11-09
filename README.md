@@ -1,6 +1,6 @@
 ## CRyd Ercolation
 
-Numerical simulation of the avalanche process of Rydberg atom exitation through percolation.
+Numerical simulation of the facilitation process of Rydberg atoms.
 
 ![fig0](evol.png)
 ![fig1](density_plot.png)

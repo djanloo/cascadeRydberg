@@ -75,22 +75,70 @@ cdef unsigned int SHELL = 1
 cdef unsigned int INTERNAL = 2
 cdef unsigned int CORE = 3
 
+cdef void add_point_to_blob( unsigned int atom_index, float [:,:] S,
+                        list cells,
+                        float r, float delta,
+                        unsigned int [:] current_topological_state):
+  # Cell list navigation working variables
+  cdef unsigned int neighboring_cell_index_on_axis
+  cdef list neighbors
+  cdef float [:] atom_position = S[atom_index]
+  cdef unsigned int space_dim = len(atom_position)
+  cdef unsigned int k
+
+  for i in range(3**space_dim):
+    neighbors = cells.copy()
+    for j in range(space_dim):
+      # CELL NAVIGATION
+      # This quirky one-line indexes the (i,j,k) coordinates of the neighbors
+      # mapping the discrete interval [0, ... , 3**space_dim] into the set {(-1, -1, -1), (-1, -1, 0), ... (-1, 1, 0), ..}
+      # of all the neighboring cells 
+      neighboring_cell_index_on_axis = <int> (atom_position[j]/(r+delta/2.0)) + (i//(3**j))%3 - 1
+      if neighboring_cell_index_on_axis < 0 or neighboring_cell_index_on_axis >= M:
+        neighbors = []
+        break
+      neighbors = neighbors[neighboring_cell_index_on_axis]      
+    # At this point neighbors is the list of neighbors in the i-th cell
+
+    # TOPOLOGY UPDATE
+    for k in range(len(neighbors)):
+      neighbor_index = neighbors[k]
+      neighbor_topological_state = current_topological_state[neighbor_index]
+      if neighbor_topological_state != INTERNAL and neighbor_topological_state != CORE:
+        # Here enter only SHELL and EXTERNAL points
+        sq_dist = square_dist(atom_position, S[neighbor_index], space_dim)
+        if neighbor_topological_state == SHELL:
+          if sq_dist < square_upper_radius:
+            current_topological_state[neighbor_index] = INTERNAL
+          # else :
+          #   print("\tleaved as SHELL")
+        else:
+          # Here enter only EXTERNAL points
+          if sq_dist < square_lower_radius:
+            current_topological_state[neighbor_index] = INTERNAL 
+          elif sq_dist < square_upper_radius:
+            current_topological_state[neighbor_index] = SHELL
+    #     else:
+    #       print("\tleaved as EXTERNAL")
+    # 
+  return 
+
 def shells_by_cells(float [:,:] S, 
                     float r, float delta, 
                     float excitation_probability = 0.1, float decay_probability = 0.1,
                     unsigned int N_iterations = 100
                     ):
-  """Use a cell binning to find the atoms in the shell of the whole sausage,
+  """Use a cell binning to find the atoms in the shell of the whole blob,
   thn simulate the process.
 
-  Iteration start from an already defined sausage and relative topology and iteratively adds
-  newly excited cores to the sausage, updating the topological indicators.
+  Iteration start from an already defined blob and relative topology and iteratively adds
+  newly excited cores to the blob, updating the topological indicators.
   Iteration uses 3 lists:
     Core lists:
-    - cores        (already excited atoms that define the sausage)
-    - new_cores    (excited in last iteration: must be added to the sausage)
+    - cores        (already excited atoms that define the blob)
+    - new_cores    (excited in last iteration: must be added to the blob)
     Topology indicator:
-    specify the topological relation of a point to the sausage
+    specify the topological relation of a point to the blob
     topological_state has values:
         - INTERNAL    (not excitable:  dist_from_nearest_core < r - delta/2)
         - SHELL       (excitable:      r - delta/2 < dist_from_all_cores < r + delta/2 )
@@ -129,9 +177,6 @@ def shells_by_cells(float [:,:] S,
   cdef float square_upper_radius = (r + delta/2.0)**2
   cdef float square_lower_radius = (r - delta/2.0)**2
 
-  # Cell list navigation working variables
-  cdef unsigned int neighboring_cell_index_on_axis
-  cdef list el
 
   ################ CELL LIST CREATION ###########################
   cdef list cells = get_cell_list(S, r+delta/2.0)
@@ -147,44 +192,11 @@ def shells_by_cells(float [:,:] S,
 
   while iteration_count < N_iterations:
     ################ BEGIN TOPOLOGICAL UPDATE ###################
-    #
+    
+    # Adds the new tcore to the blob
     for nc in range(len(new_cores)):
+      add_point_to_blob(new_cores[nc], S, cells, r, delta, topological_state)
       
-      for i in range(3**space_dim):
-        el = cells.copy()
-        for j in range(space_dim):
-          # CELL NAVIGATION
-          # This quirky one-line indexes the (i,j,k) coordinates of the neighbors
-          # mapping the discrete interval [0, ... , 3**space_dim] into the set {(-1, -1, -1), (-1, -1, 0), ... (-1, 1, 0), ..}
-          # of all the neighboring cells 
-          neighboring_cell_index_on_axis = <int> (S[<int> new_cores[nc], j]/(r+delta/2.0)) + (i//(3**j))%3 - 1
-          if neighboring_cell_index_on_axis < 0 or neighboring_cell_index_on_axis >= M:
-            el = []
-            break
-          el = el[neighboring_cell_index_on_axis]      
-        # At this point el is the list of neighbors in the i-th cell
-
-        # TOPOLOGY UPDATE
-        for k in range(len(el)):
-          el_index = el[k]
-          element_topological_state = topological_state[el_index]
-          if element_topological_state != INTERNAL and element_topological_state != CORE:
-            # Here enter only SHELL and EXTERNAL points
-            sq_dist = square_dist(S[<int> new_cores[nc]], S[el_index], space_dim)
-            if element_topological_state == SHELL:
-              if sq_dist < square_upper_radius:
-                topological_state[el_index] = INTERNAL
-              # else :
-              #   print("\tleaved as SHELL")
-            else:
-              # Here enter only EXTERNAL points
-              if sq_dist < square_lower_radius:
-                topological_state[el_index] = INTERNAL 
-              elif sq_dist < square_upper_radius:
-                topological_state[el_index] = SHELL
-    #           else:
-    #             print("\tleaved as EXTERNAL")
-    # 
     # Transfer new_cores to cores
     for k in range(len(new_cores)):
       nc = new_cores[k]

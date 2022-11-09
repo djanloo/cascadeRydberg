@@ -2,8 +2,9 @@
 
 Numerical simulation of the avalanche process of Rydberg atom exitation through percolation.
 
+![fig0](evol.png)
 ![fig1](density_plot.png)
-![fig4](rate_plot_2.png)
+![fig2](rate_plot_2.png)
 
 ### Requirements and installation
 `pipenv` is required.

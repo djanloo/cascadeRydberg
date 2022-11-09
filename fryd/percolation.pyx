@@ -78,7 +78,7 @@ cdef unsigned int CORE = 3
 def shells_by_cells(float [:,:] S, 
                     float r, float delta, 
                     float excitation_probability = 0.1, float decay_probability = 0.1,
-                    unsigned int N_of_iterations = 100
+                    unsigned int N_iterations = 100
                     ):
   """Use a cell binning to find the atoms in the shell of the whole sausage,
   thn simulate the process.
@@ -145,7 +145,7 @@ def shells_by_cells(float [:,:] S,
   cdef unsigned int iteration_count = 0
   cdef dict results = {}
 
-  while iteration_count < N_of_iterations:
+  while iteration_count < N_iterations:
     ################ BEGIN TOPOLOGICAL UPDATE ###################
     #
     for nc in range(len(new_cores)):
@@ -185,20 +185,23 @@ def shells_by_cells(float [:,:] S,
     #           else:
     #             print("\tleaved as EXTERNAL")
     # 
-    ################# END TOPOLOGICAL UPDATE ####################
-
     # Transfer new_cores to cores
     for k in range(len(new_cores)):
       nc = new_cores[k]
       cores.append(nc)
       topological_state[nc] = CORE
       number_of_cores += 1
+    ################# END TOPOLOGICAL UPDATE ####################
 
     # Empties the new_cores list
     new_cores = []
+  
+    if iteration_count == N_iterations-1:
+      print("exited after topological update")
+      break
 
     ################ BEGIN EXCITATION/DECAY #####################
-    
+
     # Excites each shell atom with a fixed probability
     exists_at_least_one_shell_atom = 0
     for i in range(N):
@@ -207,13 +210,9 @@ def shells_by_cells(float [:,:] S,
         exists_at_least_one_shell_atom = 1
         if randzerone() < excitation_probability:
           new_cores.append(i) 
-      # Decay core atoms with probability `decay_probability`
-      else if topological_state[i] == CORE:
-        if randzerone() < decay_probability:
-          cores.remove(i)
 
     ################## END EXCITATION ############################
-
+    iteration_count += 1
   # Returns the results as a dictionary
   results["state"] = S 
   results["cores"] = cores 

@@ -1,4 +1,4 @@
-## CRyd Ercolation
+## fRyd Ercolation
 
 Numerical simulation of the facilitation process of Rydberg atoms.
 

@@ -5,11 +5,11 @@ from rich.progress import track
 
 r = 0.02
 d = 0.005
-decay_p = 0.01
-excitation_p = 0.001
+decay_p = 0.02
+excitation_p = 0.003
 
-N_points = 10000
-N_iter = 10000
+N_points = 6000
+N_iter = 1001
 np.random.seed(43)
 set_seed(42)
 S = np.random.uniform(0,1, size=(N_points, 2)).astype(np.float32)

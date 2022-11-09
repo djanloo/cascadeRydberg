@@ -74,35 +74,48 @@ cdef unsigned int EXTERNAL = 0
 cdef unsigned int SHELL = 1
 cdef unsigned int INTERNAL = 2
 cdef unsigned int CORE = 3
+cdef get_ij_neighbors(list neighbors, unsigned int i, unsigned int j, float [:] atom_position, unsigned int M, float upper_radius):
+  # CELL NAVIGATION
+  # This quirky one-line indexes the (i,j,k) coordinates of the neighbors
+  # mapping the discrete interval [0, ... , 3**space_dim] into the set {(-1, -1, -1), (-1, -1, 0), ... (-1, 1, 0), ..}
+  # of all the neighboring cells 
+  cdef int neighboring_cell_index_on_axis
+  neighboring_cell_index_on_axis = <int> (atom_position[j]/upper_radius) + (i//(3**j))%3 - 1
+  if neighboring_cell_index_on_axis < 0 or neighboring_cell_index_on_axis >= M:
+    return []
+  else:
+    neighbors = neighbors[neighboring_cell_index_on_axis]      
+  # At this point neighbors is the list of neighbors in the i-th cell
+  return neighbors
 
-cdef void add_point_to_blob( unsigned int atom_index, float [:,:] S,
-                        list cells,
-                        float r, float delta,
+cdef add_core_to_blob( unsigned int atom_index, float [:,:] S,
+                        list cells, unsigned int M, 
+                        float lower_radius, float upper_radius, 
+                        float square_lower_radius, float square_upper_radius,
                         unsigned int [:] current_topological_state):
+  """
+  Given the current topology defined by (positions, topological_state) adds a point to the blob.
+
+  This is done by assigning the topological state of the r-ball of the new core as INTERNAL or SHELL.
+  """
   # Cell list navigation working variables
-  cdef unsigned int neighboring_cell_index_on_axis
   cdef list neighbors
   cdef float [:] atom_position = S[atom_index]
   cdef unsigned int space_dim = len(atom_position)
-  cdef unsigned int k
-
+  cdef unsigned int k, j, neighbor_index
+  cdef float sq_dist
   for i in range(3**space_dim):
     neighbors = cells.copy()
     for j in range(space_dim):
-      # CELL NAVIGATION
-      # This quirky one-line indexes the (i,j,k) coordinates of the neighbors
-      # mapping the discrete interval [0, ... , 3**space_dim] into the set {(-1, -1, -1), (-1, -1, 0), ... (-1, 1, 0), ..}
-      # of all the neighboring cells 
-      neighboring_cell_index_on_axis = <int> (atom_position[j]/(r+delta/2.0)) + (i//(3**j))%3 - 1
-      if neighboring_cell_index_on_axis < 0 or neighboring_cell_index_on_axis >= M:
-        neighbors = []
+      neighbors = get_ij_neighbors(neighbors, i, j, atom_position,  M, upper_radius)
+      if neighbors == []:
         break
-      neighbors = neighbors[neighboring_cell_index_on_axis]      
-    # At this point neighbors is the list of neighbors in the i-th cell
-
     # TOPOLOGY UPDATE
+    # - INTERNAL -> INTERNAL
+    # - SHELL -> SHELL/INTERNAL
+    # - EXTERNAL -> SHELL/INTERNAL
     for k in range(len(neighbors)):
-      neighbor_index = neighbors[k]
+      neighbor_index = <int> neighbors[k]
       neighbor_topological_state = current_topological_state[neighbor_index]
       if neighbor_topological_state != INTERNAL and neighbor_topological_state != CORE:
         # Here enter only SHELL and EXTERNAL points
@@ -120,8 +133,73 @@ cdef void add_point_to_blob( unsigned int atom_index, float [:,:] S,
             current_topological_state[neighbor_index] = SHELL
     #     else:
     #       print("\tleaved as EXTERNAL")
-    # 
+    #
+  # Set the core atom as CORE
+  current_topological_state[atom_index] = CORE
   return 
+
+cdef delete_core_from_blob(list decaying_cores, float [:, :] S, list cores,
+                          list cells, unsigned int M,
+                          float lower_radius, float upper_radius, 
+                          float square_lower_radius, float square_upper_radius,
+                          unsigned int [:] current_topological_state):
+  """Given the current topology defined by (positions, topological_state) deletes a core point from the blob.
+  
+  This is done by assigning every point of the r-neighbor of the deleted point as EXTERN (carving)
+  and recomputing the topological state for every core (inflating).
+
+  To avoid redundant inflating, a list of point to delete can given to inflate one time for all.
+  """
+  cdef unsigned int c, dc
+
+  # Cell list navigation working variables
+  cdef list neighbors
+  cdef float [:] atom_position = S[0]
+  cdef unsigned int space_dim = len(atom_position)
+  cdef unsigned int k, j, neighbor_index, decayng_core_index 
+
+  cdef float sq_dist
+
+  for dc in range(len(decaying_cores)):
+    decayng_core_index = <int> decaying_cores[dc]
+    current_topological_state[decayng_core_index] = EXTERNAL
+    cores.remove(decayng_core_index )
+
+    atom_position = S[decayng_core_index ]
+    for i in range(3**space_dim):
+      neighbors = cells.copy()
+      for j in range(space_dim):
+        neighbors = get_ij_neighbors(neighbors, i, j, atom_position,  M, upper_radius)
+        if neighbors == []:
+          break
+      
+      for k in range(len(neighbors)):
+        # Carves a cube from the blob around the decayed point
+        current_topological_state[<int> neighbors[k]] = EXTERNAL
+
+  for c in range(len(cores)):
+    atom_position = S[<int> cores[c]]
+    for i in range(3**space_dim):
+      neighbors = cells.copy()
+      for j in range(space_dim):
+        neighbors = get_ij_neighbors(neighbors, i, j, atom_position,  M, upper_radius)
+        if neighbors == []:
+          break
+
+      # TOPOLOGY UPDATE FOR INFLATING
+      # - INTERNAL -> INTERNAL
+      # - SHELL -> SHELL (because otherwise the fraction of shell already marked will be lost)
+      # - EXTERNAL -> SHELL/INTERNAL
+      for k in range(len(neighbors)):
+        neighbor_index = <int> neighbors[k]
+        neighbor_topological_state = current_topological_state[neighbor_index]
+        if neighbor_topological_state == EXTERNAL:
+          sq_dist = square_dist(atom_position, S[neighbor_index], space_dim)
+          if sq_dist < square_lower_radius:
+            current_topological_state[neighbor_index] = INTERNAL 
+          elif sq_dist < square_upper_radius:
+            current_topological_state[neighbor_index] = SHELL
+  return
 
 def shells_by_cells(float [:,:] S, 
                     float r, float delta, 
@@ -168,25 +246,28 @@ def shells_by_cells(float [:,:] S,
   cdef unsigned int M = <int> (1.0/(r+delta/2.0)) + 1
 
   # Define main lists of the algorithm
-  cdef list cores = [], new_cores = []
+  cdef list cores = [], new_cores = [], this_iteration_decayed_cores = []
+
   cdef unsigned int [:] topological_state = np.zeros(N, dtype=np.uintc)
 
   # Topolgy update working variables
   cdef unsigned int i,j,k, nc, el_index, element_topological_state
   cdef float sq_dist
-  cdef float square_upper_radius = (r + delta/2.0)**2
-  cdef float square_lower_radius = (r - delta/2.0)**2
 
+  cdef float upper_radius = (r + delta/2.0)
+  cdef float lower_radius = (r - delta/2.0)
+  cdef float square_upper_radius = upper_radius**2
+  cdef float square_lower_radius = lower_radius**2
 
   ################ CELL LIST CREATION ###########################
-  cdef list cells = get_cell_list(S, r+delta/2.0)
+  cdef list cells = get_cell_list(S, upper_radius)
 
   ################ FIRST ATOM EXCITATION ########################
   first_atom_index = rand()%N
   new_cores.append(first_atom_index)
   topological_state[first_atom_index] = CORE
 
-  cdef int number_of_cores = 0, exists_at_least_one_shell_atom = 0
+  cdef int number_of_cores = 0, exists_at_least_one_shell_atom = 0, exists_at_least_one_core_atom = 0
   cdef unsigned int iteration_count = 0
   cdef dict results = {}
 
@@ -195,16 +276,13 @@ def shells_by_cells(float [:,:] S,
     
     # Adds the new tcore to the blob
     for nc in range(len(new_cores)):
-      add_point_to_blob(new_cores[nc], S, cells, r, delta, topological_state)
-      
-    # Transfer new_cores to cores
-    for k in range(len(new_cores)):
-      nc = new_cores[k]
-      cores.append(nc)
-      topological_state[nc] = CORE
+      add_core_to_blob(new_cores[nc], S, cells,M, lower_radius, upper_radius, square_lower_radius, square_upper_radius, topological_state)  
+      cores.append(new_cores[nc])
       number_of_cores += 1
+
     ################# END TOPOLOGICAL UPDATE ####################
 
+    # print(f"it: {iteration_count}: added {len(new_cores)} cores")
     # Empties the new_cores list
     new_cores = []
   
@@ -216,13 +294,28 @@ def shells_by_cells(float [:,:] S,
 
     # Excites each shell atom with a fixed probability
     exists_at_least_one_shell_atom = 0
+    exists_at_least_one_core_atom = 0
+    this_iteration_decayed_cores = []
     for i in range(N):
       # Excite shell atoms with probability `excitation_probability`
       if topological_state[i] == SHELL:
         exists_at_least_one_shell_atom = 1
         if randzerone() < excitation_probability:
           new_cores.append(i) 
+      if topological_state[i] == CORE:
+        exists_at_least_one_core_atom = 1
+        if randzerone() < decay_probability:
+          this_iteration_decayed_cores.append(i)
 
+    # print(f"it: {iteration_count}: decayed {len(this_iteration_decayed_cores)} cores")
+    delete_core_from_blob(this_iteration_decayed_cores,S, cores,
+                          cells, M,
+                          lower_radius,upper_radius, 
+                          square_lower_radius, square_upper_radius,
+                          topological_state)
+    if (exists_at_least_one_core_atom == 0 and exists_at_least_one_shell_atom == 0 ):
+      print(f"excited population died at iteration {iteration_count}")
+      break
     ################## END EXCITATION ############################
     iteration_count += 1
   # Returns the results as a dictionary

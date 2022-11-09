@@ -77,7 +77,8 @@ cdef unsigned int CORE = 3
 
 def shells_by_cells(float [:,:] S, 
                     float r, float delta, 
-                    float excitation_probability, float decay_probability
+                    float excitation_probability = 0.1, float decay_probability = 0.1,
+                    unsigned int N_of_iterations = 100
                     ):
   """Use a cell binning to find the atoms in the shell of the whole sausage,
   thn simulate the process.
@@ -132,17 +133,20 @@ def shells_by_cells(float [:,:] S,
   cdef unsigned int neighboring_cell_index_on_axis
   cdef list el
 
-  ################ CELL LIST CREATION ##########################
+  ################ CELL LIST CREATION ###########################
   cdef list cells = get_cell_list(S, r+delta/2.0)
 
-  ################ FIRST ATOM EXCITATION #######################
+  ################ FIRST ATOM EXCITATION ########################
   first_atom_index = rand()%N
   new_cores.append(first_atom_index)
   topological_state[first_atom_index] = CORE
 
-  cdef int number_of_cores = 0, exists_at_least_one_shell_atom = 0, safety_flag=0
-  while True:
-    ################ BEGIN TOPOLOGICAL UPDATE ####################
+  cdef int number_of_cores = 0, exists_at_least_one_shell_atom = 0
+  cdef unsigned int iteration_count = 0
+  cdef dict results = {}
+
+  while iteration_count < N_of_iterations:
+    ################ BEGIN TOPOLOGICAL UPDATE ###################
     #
     for nc in range(len(new_cores)):
       
@@ -193,18 +197,26 @@ def shells_by_cells(float [:,:] S,
     # Empties the new_cores list
     new_cores = []
 
-    ############### BEGIN EXCITATION #############################
-    #
+    ################ BEGIN EXCITATION/DECAY #####################
+    
     # Excites each shell atom with a fixed probability
     exists_at_least_one_shell_atom = 0
     for i in range(N):
+      # Excite shell atoms with probability `excitation_probability`
       if topological_state[i] == SHELL:
         exists_at_least_one_shell_atom = 1
         if randzerone() < excitation_probability:
           new_cores.append(i) 
-    #
-    ############### END EXCITATION ###############################
-    if exists_at_least_one_shell_atom == 0:
-      break
+      # Decay core atoms with probability `decay_probability`
+      else if topological_state[i] == CORE:
+        if randzerone() < decay_probability:
+          cores.remove(i)
 
-  return len(cores)
+    ################## END EXCITATION ############################
+
+  # Returns the results as a dictionary
+  results["state"] = S 
+  results["cores"] = cores 
+  results["topological_state"] = topological_state
+
+  return results

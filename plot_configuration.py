@@ -5,7 +5,7 @@ from rich.progress import track
 
 r = 0.02
 d = 0.005
-decay_p = 0.3
+decay_p = 0.2
 excitation_p = 0.3
 
 N_points = 6000

@@ -138,17 +138,17 @@ cdef add_core_to_blob( unsigned int atom_index, float [:,:] S,
   current_topological_state[atom_index] = CORE
   return 
 
-cdef delete_core_from_blob(list decaying_cores, float [:, :] S, list cores,
-                          list cells, unsigned int M,
+cdef int delete_core_from_blob(list decaying_cores, float [:, :] S,
+                          list cells, list double_cells, unsigned int M,
                           float lower_radius, float upper_radius, 
                           float square_lower_radius, float square_upper_radius,
                           unsigned int [:] current_topological_state):
   """Given the current topology defined by (positions, topological_state) deletes a core point from the blob.
   
-  This is done by assigning every point of the r-neighbor of the deleted point as EXTERN (carving)
+  This is done by assigning every point of the 2r-neighborhood of the deleted point as EXTERN (carving)
   and recomputing the topological state for every core (inflating).
 
-  To avoid redundant inflating, a list of point to delete can given to inflate one time for all.
+  Cores are rearched in the 2r-neighborhood of the decaying core.
   """
   cdef unsigned int c, dc
 
@@ -156,30 +156,44 @@ cdef delete_core_from_blob(list decaying_cores, float [:, :] S, list cores,
   cdef list neighbors
   cdef float [:] atom_position = S[0]
   cdef unsigned int space_dim = len(atom_position)
-  cdef unsigned int k, j, neighbor_index, decayng_core_index 
+  cdef unsigned int k, j, neighbor_index, decaying_core_index 
 
   cdef float sq_dist
-
+  cdef set cores_to_be_inflated_set = set([])
+  cdef list cores_to_be_inflated = []
+  if decaying_cores == []:
+    return 0
+  #################### CARVING ###################
   for dc in range(len(decaying_cores)):
-    decayng_core_index = <int> decaying_cores[dc]
-    current_topological_state[decayng_core_index] = EXTERNAL
-    cores.remove(decayng_core_index )
+    decaying_core_index = <int> decaying_cores[dc]
+    current_topological_state[decaying_core_index] = EXTERNAL
 
-    atom_position = S[decayng_core_index ]
+    atom_position = S[decaying_core_index ]
+
+    # Takes all the 2r-cell-neighborhood and sets it as EXTERN if not a core point
     for i in range(3**space_dim):
-      neighbors = cells.copy()
+      neighbors = double_cells.copy()
       for j in range(space_dim):
-        neighbors = get_ij_neighbors(neighbors, i, j, atom_position,  M, upper_radius)
+        neighbors = get_ij_neighbors(neighbors, i, j, atom_position,  M//2 , 2*upper_radius)
         if neighbors == []:
           break
       
       for k in range(len(neighbors)):
-        # Carves a cube from the blob around the decayed point
-        current_topological_state[<int> neighbors[k]] = EXTERNAL
+        if current_topological_state[<int> neighbors[k]] == CORE:
+          # Adds the neighboring core to the list of points to be inflated
+          cores_to_be_inflated_set.add(neighbors[k])
+        else:
+          # Carves a cube from the blob
+          current_topological_state[<int> neighbors[k]] = EXTERNAL
 
-  for c in range(len(cores)):
-    current_topological_state[<int> cores[c]] = CORE
-    atom_position = S[<int> cores[c]]
+  ############### INFLATING #############
+  cores_to_be_inflated = list(cores_to_be_inflated_set)
+  # print(f"Decayed: {decaying_cores}")
+  # print(f"Cores to be inflated: {cores_to_be_inflated}")
+  # For the inflating phase only the r-cell-neighborhood is required
+  # It is not possible to call sdd_point_to_blob because shell points are lost
+  for c in range(len(cores_to_be_inflated)):
+    atom_position = S[<int> cores_to_be_inflated[c]]
     for i in range(3**space_dim):
       neighbors = cells.copy()
       for j in range(space_dim):
@@ -200,7 +214,7 @@ cdef delete_core_from_blob(list decaying_cores, float [:, :] S, list cores,
             current_topological_state[neighbor_index] = INTERNAL 
           elif sq_dist < square_upper_radius:
             current_topological_state[neighbor_index] = SHELL
-  return
+  return len(cores_to_be_inflated)
 
 def shells_by_cells(float [:,:] S, 
                     float r, float delta, 
@@ -260,8 +274,14 @@ def shells_by_cells(float [:,:] S,
   cdef float square_upper_radius = upper_radius**2
   cdef float square_lower_radius = lower_radius**2
 
+  ################ TIME DIAGNOSTIC  #############################
+  cdef unsigned int [:] N_cores = np.zeros(N_iterations, dtype=np.uintc)
+  cdef unsigned int [:] N_decayed = np.zeros(N_iterations, dtype=np.uintc)
+  cdef unsigned int [:] N_inflated = np.zeros(N_iterations, dtype=np.uintc)
+
   ################ CELL LIST CREATION ###########################
   cdef list cells = get_cell_list(S, upper_radius)
+  cdef list double_cells = get_cell_list(S, 2*upper_radius)
 
   ################ FIRST ATOM EXCITATION ########################
   first_atom_index = rand()%N
@@ -306,22 +326,28 @@ def shells_by_cells(float [:,:] S,
       if topological_state[i] == CORE:
         exists_at_least_one_core_atom = 1
         if randzerone() < decay_probability:
+          topological_state[i] = EXTERNAL
           this_iteration_decayed_cores.append(i)
+          cores.remove(i)
 
     # print(f"it: {iteration_count}: decayed {len(this_iteration_decayed_cores)} cores")
-    delete_core_from_blob(this_iteration_decayed_cores,S, cores,
-                          cells, M,
-                          lower_radius,upper_radius, 
-                          square_lower_radius, square_upper_radius,
-                          topological_state)
+    N_inflated[iteration_count] = delete_core_from_blob(this_iteration_decayed_cores,S, cells, double_cells, M, lower_radius,upper_radius, square_lower_radius, square_upper_radius, topological_state)
     if (exists_at_least_one_core_atom == 0 and exists_at_least_one_shell_atom == 0 ):
       print(f"excited population died at iteration {iteration_count}")
       break
-    ################## END EXCITATION ############################
+    ############### END EXCITATION/DECAY #########################
+    N_cores[iteration_count] = len(cores)
+    N_decayed[iteration_count] = len(this_iteration_decayed_cores)
+
+
     iteration_count += 1
   # Returns the results as a dictionary
+  print("returning dict")
   results["state"] = S 
   results["cores"] = cores 
   results["topological_state"] = topological_state
+  results["N_cores_t"] = np.array(N_cores)
+  results["N_decayed_t"] = np.array(N_decayed)
+  results["N_inflated_t"] = np.array(N_inflated)
 
   return results

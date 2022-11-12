@@ -1,7 +1,7 @@
 from fryd.ercolation import shells_by_cells
 import numpy as np
 from matplotlib import pyplot as plt
-N = 1000000
+N = 100000
 T = 100
 p = 0.1
 
@@ -13,6 +13,7 @@ for p in [0.1, 0.2, 0.3]:
         S[u<p] = 0
         activation[t] = np.sum(S)/N
 
-    plt.plot(activation)
+    plt.plot(activation, label=f"p = {p}")
+plt.legend()
 plt.yscale("log")
 plt.show()

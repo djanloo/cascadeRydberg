@@ -5,11 +5,11 @@ from rich.progress import track
 
 r = 0.02
 d = 0.005
-decay_p = 0.2
+decay_p = 0.03
 excitation_p = 0.3
 
 N_points = 6000
-N_iter = 300
+N_iter = 3
 np.random.seed(43)
 set_seed(42)
 S = np.random.uniform(0,1, size=(N_points, 2)).astype(np.float32)
@@ -24,7 +24,7 @@ ax[0].set_title("Last configuration", size=10)
 ax[0].set_aspect('equal')
 ax[0].axis("off")
 top_state = np.array(results["topological_state"])
-ax[0].scatter(S[:,0], S[:,1], c=top_state, vmin=0, vmax=3)
+ax[0].scatter(S[:,0], S[:,1], c=top_state, s=2, vmin=0, vmax=3)
 
 ax[1].plot(results["N_cores_t"]/N_points, label="N_cores")
 ax[1].plot(results["N_decayed_t"]/N_points, label="N_decayed")

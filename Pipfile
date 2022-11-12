@@ -9,6 +9,7 @@ rich = "*"
 line-profiler = "*"
 numpy = "*"
 matplotlib = "*"
+scipy = "*"
 
 [dev-packages]
 

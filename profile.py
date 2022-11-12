@@ -23,7 +23,7 @@ np.random.seed(43)
 wrap = profile(ercolation.shells_by_cells)
 for j in range(1):
     ercolation.set_seed(42)
-    u = wrap(S, 0.02 ,0.05, 0.201, 0.1, N_iterations=50)
+    u = wrap(S, 0.02 ,0.05, 1e-2, 1e-4, N_iterations=1000)
 profile.print_stats()
 print(u)
 plt.scatter(S[:,0], S[:,1], c=u["topological_state"], vmin=0, vmax=3)

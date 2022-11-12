@@ -14,8 +14,8 @@ N_iter = 1000
 
 print(f"mean_excitated_points_in_ball = {excitation_p*np.pi*N_points*( (r + d/2)**space_dimension )  }")
 
-samples = 1
-M = 2
+samples = 10
+M = 50
 
 n = np.zeros((samples*10, M))
 sigma = np.zeros((samples*10,M))

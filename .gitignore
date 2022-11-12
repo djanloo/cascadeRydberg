@@ -12,6 +12,10 @@ __pycache__/
 # HTML cython stuff
 *.html
 
+*.mp4
+*.gif
+
+
 # Distribution / packaging
 .Python
 build/

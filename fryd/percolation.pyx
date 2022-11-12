@@ -184,7 +184,9 @@ cdef int delete_core_from_blob(list decaying_cores, float [:, :] S,
           cores_to_be_inflated_set.add(neighbors[k])
         else:
           # Carves a cube from the blob
-          current_topological_state[<int> neighbors[k]] = EXTERNAL
+          ## TEST: DANGEROUS
+          if square_dist(atom_position, S[neighbors[k]], space_dim) < square_upper_radius:
+            current_topological_state[<int> neighbors[k]] = EXTERNAL
 
   ############### INFLATING #############
   cores_to_be_inflated = list(cores_to_be_inflated_set)
@@ -214,10 +216,17 @@ cdef int delete_core_from_blob(list decaying_cores, float [:, :] S,
             current_topological_state[neighbor_index] = INTERNAL 
           elif sq_dist < square_upper_radius:
             current_topological_state[neighbor_index] = SHELL
+        # TEST: DANGEROUS LINE
+        if neighbor_topological_state == SHELL:
+          sq_dist = square_dist(atom_position, S[neighbor_index], space_dim)
+          if sq_dist < square_upper_radius:
+            # current_topological_state[neighbor_index] = INTERNAL
+            pass
+
   return len(cores_to_be_inflated)
 
 def shells_by_cells(float [:,:] S, 
-                    float r, float delta, 
+                    float r, float delta, initial_cores = None,
                     float excitation_probability = 0.1, float decay_probability = 0.1,
                     unsigned int N_iterations = 100
                     ):
@@ -283,10 +292,17 @@ def shells_by_cells(float [:,:] S,
   cdef list cells = get_cell_list(S, upper_radius)
   cdef list double_cells = get_cell_list(S, 2*upper_radius)
 
-  ################ FIRST ATOM EXCITATION ########################
-  first_atom_index = rand()%N
-  new_cores.append(first_atom_index)
-  topological_state[first_atom_index] = CORE
+  ################ FIRST ATOM(s) EXCITATION ########################
+  if initial_cores == None:
+    for i in range(5):
+      first_atom_index = rand()%N
+      new_cores.append(first_atom_index)
+      topological_state[first_atom_index] = CORE
+  
+  else:
+    for i in range(len(initial_cores)):
+      new_cores.append(initial_cores[i])
+      topological_state[initial_cores[i]] = CORE
 
   cdef int number_of_cores = 0, exists_at_least_one_shell_atom = 0, exists_at_least_one_core_atom = 0
   cdef unsigned int iteration_count = 0
@@ -306,10 +322,6 @@ def shells_by_cells(float [:,:] S,
     # print(f"it: {iteration_count}: added {len(new_cores)} cores")
     # Empties the new_cores list
     new_cores = []
-  
-    if iteration_count == N_iterations-1:
-      print("exited after topological update")
-      break
 
     ################ BEGIN EXCITATION/DECAY #####################
 
@@ -333,21 +345,25 @@ def shells_by_cells(float [:,:] S,
     # print(f"it: {iteration_count}: decayed {len(this_iteration_decayed_cores)} cores")
     N_inflated[iteration_count] = delete_core_from_blob(this_iteration_decayed_cores,S, cells, double_cells, M, lower_radius,upper_radius, square_lower_radius, square_upper_radius, topological_state)
     if (exists_at_least_one_core_atom == 0 and exists_at_least_one_shell_atom == 0 ):
-      print(f"excited population died at iteration {iteration_count}")
+      print(f"WARNING: excited population died at iteration {iteration_count}")
+      results["died"] = True
       break
     ############### END EXCITATION/DECAY #########################
     N_cores[iteration_count] = len(cores)
     N_decayed[iteration_count] = len(this_iteration_decayed_cores)
 
+    if iteration_count == N_iterations-1:
+      # print("exited after topological update")
+      results["died"] = False
+      break
+
 
     iteration_count += 1
   # Returns the results as a dictionary
-  print("returning dict")
   results["state"] = S 
   results["cores"] = cores 
-  results["topological_state"] = topological_state
+  results["topological_state"] = np.array(topological_state)
   results["N_cores_t"] = np.array(N_cores)
   results["N_decayed_t"] = np.array(N_decayed)
   results["N_inflated_t"] = np.array(N_inflated)
-
   return results

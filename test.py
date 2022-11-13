@@ -1,19 +1,22 @@
-from fryd.ercolation import shells_by_cells
+from fryd.regular_solid import regular_lattice
 import numpy as np
-from matplotlib import pyplot as plt
-N = 100000
-T = 100
-p = 0.1
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 
-activation = np.zeros(T)
-for p in [0.1, 0.2, 0.3]:
-    S = np.ones(N)
-    for t in range(T):
-        u = np.random.uniform(0,1, size=N)
-        S[u<p] = 0
-        activation[t] = np.sum(S)/N
+N = 50
+S = np.zeros((N, N), dtype=np.uintc)
+stats = regular_lattice(S, N_iterations=1)
 
-    plt.plot(activation, label=f"p = {p}")
-plt.legend()
-plt.yscale("log")
+fig, ax = plt.subplots()
+img = ax.matshow(stats["state"])
+# plt.show()
+def update(i):
+    global stats
+    stats = regular_lattice(S, N_iterations=1, startfrom=stats["state"], 
+                            excitation_probability=0.1, decay_probability=0.24)
+    if i < 100:
+        img.set_data(stats["state"])
+
+anim = FuncAnimation(fig, update, interval=1, frames=100)
+
 plt.show()

@@ -1,4 +1,4 @@
-from fryd.ercolation import shells_by_cells, set_seed
+from fryd.random_solid import shells_by_cells, set_seed
 import numpy as np
 from matplotlib import pyplot as plt
 from rich.progress import track
